@@ -1,0 +1,20 @@
+
+RadSVG is a simple (and incomplete) renderer for SVG Tiny 1.2 
+that I frequently use in iOS apps. Typically I've used it
+to render icons or other simple graphics that were exported
+from Adobe Illustrator or another vector tool such as 
+Sketch.
+
+<text> elements are not supported and you may find many
+other things missing. I generally just add things as I need
+them.
+
+The test SVG files in the samples directory are from the 
+SVG Tiny 1.2 spec and belong to the W3C.
+
+http://www.w3.org/TR/SVGTiny12/index.html
+
+Released under the Apache 2.0 license.
+
+Tim Burks
+Radtastical Inc.
