@@ -178,17 +178,17 @@ static CGAffineTransform parseTransform(NSString *transformText)
     while (strlen(toparse)) {
         remainder[0] = 0;
         float a, b, c, d, tx, ty;
-        if (sscanf(toparse, "matrix(%f %f %f %f %f %f)%s", &a, &b, &c, &d, &tx, &ty, remainder)) {
+        if (sscanf(toparse, "matrix(%f %f %f %f %f %f)%[^\0]", &a, &b, &c, &d, &tx, &ty, remainder)) {
             CGAffineTransform transform = CGAffineTransformMake(a,b,c,d,tx,ty);
             fullTransform = CGAffineTransformConcat(transform, fullTransform);
             free(toparse);
             toparse = trim(remainder);
-        } else if (sscanf(toparse, "translate(%f %f)%s", &tx, &ty, remainder)) {
+        } else if (sscanf(toparse, "translate(%f %f)%[^\0]", &tx, &ty, remainder)) {
             CGAffineTransform transform = CGAffineTransformMakeTranslation(tx, ty);
             fullTransform = CGAffineTransformConcat(transform, fullTransform);
             free(toparse);
             toparse = trim(remainder);
-        } else if (sscanf(toparse, "rotate(%f)%s", &a, remainder)) {
+        } else if (sscanf(toparse, "rotate(%f)%[^\0]", &a, remainder)) {
             a = a / 360.0 * 2 * M_PI;
             CGAffineTransform transform = CGAffineTransformMakeRotation(a);
             fullTransform = CGAffineTransformConcat(transform, fullTransform);
@@ -452,7 +452,7 @@ static CGAffineTransform parseTransform(NSString *transformText)
     if ([self.attributes objectForKey:@"transform"]) {
         NSString *transformText = [self.attributes objectForKey:@"transform"];
         CGAffineTransform transform = parseTransform(transformText);
-        innerTransform = CGAffineTransformConcat(innerTransform, transform);
+        innerTransform = CGAffineTransformConcat(transform, innerTransform);
     }
     for (id child in self.children) {
         [child drawInContext:context
