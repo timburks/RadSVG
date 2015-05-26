@@ -23,7 +23,6 @@
 @end
 
 @interface RadSVGGroup : NSObject
-@property (nonatomic, assign) CGAffineTransform transform;
 @property (nonatomic, strong) NSMutableArray *children;
 @property (nonatomic, strong) NSMutableDictionary *attributes;
 - (CGRect) bounds;
@@ -96,7 +95,7 @@ static CGColorRef CGColorForName(NSString *name) {
         } else if ([name isEqualToString:@"gray"]) {
             r = g = b = 0.5;
         } else if ([name isEqualToString:@"white"]) {
-            r = g = b = 1;            
+            r = g = b = 1;
         } else if ([name isEqualToString:@"maroon"]) {
             r = 0.5; g = 0; b = 0;
         } else if ([name isEqualToString:@"red"]) {
@@ -333,7 +332,22 @@ static CGAffineTransform parseTransform(NSString *transformText)
 - (void) drawInContext:(CGContextRef) context
              withAlpha:(CGFloat) p_alpha
              transform:(CGAffineTransform) transform
+           strokeColor:(CGColorRef) strokeColor
+             fillColor:(CGColorRef) fillColor
+           strokeWidth:(CGFloat) strokeWidth
         colorOverrides:(NSDictionary *) colorOverrides {
+    
+    if (fillColor) {
+        _fillColor = CGColorCreateCopy(fillColor);
+    }
+    
+    if (strokeColor) {
+        _strokeColor = CGColorCreateCopy(strokeColor);
+    }
+    
+    if (strokeWidth != 0.0) {
+        _strokeWidth = strokeWidth;
+    }
     
     CGContextSaveGState(context);
     CGContextConcatCTM(context, transform);
@@ -456,6 +470,9 @@ static CGAffineTransform parseTransform(NSString *transformText)
 - (void) drawInContext:(CGContextRef) context
              withAlpha:(CGFloat) alpha
              transform:(CGAffineTransform)transform
+           strokeColor:(CGColorRef) strokeColor
+             fillColor:(CGColorRef) fillColor
+           strokeWidth:(CGFloat) strokeWidth
         colorOverrides:(NSDictionary *)colorOverrides
 {
     CGAffineTransform innerTransform = transform;
@@ -467,10 +484,29 @@ static CGAffineTransform parseTransform(NSString *transformText)
         CGAffineTransform transform = parseTransform(transformText);
         innerTransform = CGAffineTransformConcat(transform, innerTransform);
     }
+    
+    id strokeColorName = [_attributes objectForKey:@"stroke"];
+    if (strokeColorName) {
+        strokeColor = CGColorForName(strokeColorName);
+    }
+    
+    id fillColorName = [_attributes objectForKey:@"fill"];
+    if (fillColorName) {
+        fillColor = CGColorForName(fillColorName);
+    }
+    
+    id strokeWidthText = [_attributes objectForKey:@"stroke-width"];
+    if (strokeWidthText) {
+        strokeWidth = [strokeWidthText floatValue];
+    }
+    
     for (id child in self.children) {
         [child drawInContext:context
                    withAlpha:alpha
                    transform:innerTransform
+                 strokeColor:strokeColor
+                   fillColor:fillColor
+                 strokeWidth:strokeWidth
               colorOverrides:colorOverrides];
     }
 }
@@ -586,7 +622,13 @@ static CGAffineTransform parseTransform(NSString *transformText)
     
     CGAffineTransform transform = CGAffineTransformIdentity;
     for (id child in self.children) {
-        [child drawInContext:context withAlpha:1.0 transform:transform colorOverrides:colorOverrides];
+        [child drawInContext:context
+                   withAlpha:1.0
+                   transform:transform
+                 strokeColor:NULL
+                   fillColor:NULL
+                 strokeWidth:0
+              colorOverrides:colorOverrides];
     }
     CGContextRestoreGState(context);
 }
