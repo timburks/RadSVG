@@ -174,21 +174,33 @@ static CGAffineTransform parseTransform(NSString *transformText)
     
     char *toparse = strdup([transformText cStringUsingEncoding:NSUTF8StringEncoding]);
     char *remainder = (char *) malloc(strlen(toparse+1));
+    char *numbers   = (char *) malloc(strlen(toparse+1));
     
     while (strlen(toparse)) {
         remainder[0] = 0;
-        float a, b, c, d, tx, ty;
-        if (sscanf(toparse, "matrix(%f %f %f %f %f %f)%[^\0]", &a, &b, &c, &d, &tx, &ty, remainder)) {
+        if (sscanf(toparse, "matrix(%[^)])%[^\0]", numbers, remainder)) {
+            const char *cursor = numbers;
+            float a  = parsePathNumber(&cursor);
+            float b  = parsePathNumber(&cursor);
+            float c  = parsePathNumber(&cursor);
+            float d  = parsePathNumber(&cursor);
+            float tx = parsePathNumber(&cursor);
+            float ty = parsePathNumber(&cursor);
             CGAffineTransform transform = CGAffineTransformMake(a,b,c,d,tx,ty);
             fullTransform = CGAffineTransformConcat(transform, fullTransform);
             free(toparse);
             toparse = trim(remainder);
-        } else if (sscanf(toparse, "translate(%f %f)%[^\0]", &tx, &ty, remainder)) {
+        } else if (sscanf(toparse, "translate(%[^)])%[^\0]", numbers, remainder)) {
+            const char *cursor = numbers;
+            float tx = parsePathNumber(&cursor);
+            float ty = parsePathNumber(&cursor);
             CGAffineTransform transform = CGAffineTransformMakeTranslation(tx, ty);
             fullTransform = CGAffineTransformConcat(transform, fullTransform);
             free(toparse);
             toparse = trim(remainder);
-        } else if (sscanf(toparse, "rotate(%f)%[^\0]", &a, remainder)) {
+        } else if (sscanf(toparse, "rotate(%[^)])%[^\0]", numbers, remainder)) {
+            const char *cursor = numbers;
+            float a  = parsePathNumber(&cursor);
             a = a / 360.0 * 2 * M_PI;
             CGAffineTransform transform = CGAffineTransformMakeRotation(a);
             fullTransform = CGAffineTransformConcat(transform, fullTransform);
@@ -199,6 +211,7 @@ static CGAffineTransform parseTransform(NSString *transformText)
             break;
         }
     }
+    free(numbers);
     free(remainder);
     free(toparse);
     
@@ -631,7 +644,7 @@ static CGAffineTransform parseTransform(NSString *transformText)
                    colorOverrides:(NSDictionary *) colorOverrides
                   backgroundColor:(CGColorRef) backgroundColor
 {
-    UIImage *image = [self imageWithSize:size colorOverrides:colorOverrides scale:2];
+    UIImage *image = [self imageWithSize:size colorOverrides:colorOverrides scale:1];
     return UIImagePNGRepresentation(image);
 }
 
@@ -653,31 +666,13 @@ static CGFloat parseAttributeNumber(const char *string) {
 }
 
 static CGFloat parsePathNumber(const char **cp) {
-    CGFloat value = 0.0;
-    CGFloat fraction = 0.0;
-    int sign = 1;
     if ((**cp == ',') || (**cp == ' ') || (**cp == '\n')) {
         (*cp)++;
     }
-    if (**cp == '-') {
-        sign = -1;
-        (*cp)++;
-    }
-    while(((**cp >= '0') && (**cp <= '9')) || (**cp == '.')) {
-        if (**cp == '.') {
-            fraction = 0.1;
-        } else {
-            if (fraction == 0.0) {
-                value = value * 10 + (**cp - '0');
-            } else {
-                value += fraction * (**cp - '0');
-                fraction = fraction * 0.1;
-            }
-        }
-        (*cp)++;
-    }
-    value = value * sign;
-    // NSLog(@"returning %f", value);
+    float value;
+    int position;
+    sscanf(*cp, "%f%n", &value, &position);
+    *cp += position;
     return value;
 }
 
