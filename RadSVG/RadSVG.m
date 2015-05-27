@@ -486,12 +486,12 @@ static CGAffineTransform parseTransform(NSString *transformText)
     }
     
     id strokeColorName = [_attributes objectForKey:@"stroke"];
-    if (strokeColorName) {
+    if (strokeColorName && ![strokeColorName isEqualToString:@"none"]) {
         strokeColor = CGColorForName(strokeColorName);
     }
     
     id fillColorName = [_attributes objectForKey:@"fill"];
-    if (fillColorName) {
+    if (fillColorName && ![fillColorName isEqualToString:@"none"]) {
         fillColor = CGColorForName(fillColorName);
     }
     
