@@ -48,7 +48,7 @@
 
 #pragma mark - Static helper functions for drawing SVGs
 
-static CGColorRef CGColorForName(NSString *name);
+static CGColorRef CGCreateColorForName(NSString *name);
 
 static int CGColorGrayValue(CGColorRef color);
 
@@ -65,7 +65,7 @@ static void parsePolyText(CGMutablePathRef cgpath,
                           NSString *polygonText,
                           BOOL closePath);
 
-static CGColorRef CGColorForName(NSString *name) {
+static CGColorRef CGCreateColorForName(NSString *name) {
     @autoreleasepool {
         CGFloat r, g, b, a = 1.0;
         
@@ -304,7 +304,7 @@ static CGAffineTransform parseTransform(NSString *transformText)
         if (_strokeColor) {
             CGColorRelease(_strokeColor);
         }
-        _strokeColor = CGColorForName(strokeColorName);
+        _strokeColor = CGCreateColorForName(strokeColorName);
     }
     
     id fillColorName = [_attributes objectForKey:@"fill"];
@@ -319,7 +319,7 @@ static CGAffineTransform parseTransform(NSString *transformText)
         if (_fillColor) {
             CGColorRelease(_fillColor);
         }
-        _fillColor = CGColorForName(fillColorName);
+        _fillColor = CGCreateColorForName(fillColorName);
     }
     
     id strokeWidthText = [_attributes objectForKey:@"stroke-width"];
@@ -338,11 +338,15 @@ static CGAffineTransform parseTransform(NSString *transformText)
         colorOverrides:(NSDictionary *) colorOverrides {
     
     if (fillColor) {
-        _fillColor = CGColorCreateCopy(fillColor);
+        if (!_fillColor) {
+            _fillColor = CGColorCreateCopy(fillColor);
+        }
     }
     
     if (strokeColor) {
-        _strokeColor = CGColorCreateCopy(strokeColor);
+        if (!_strokeColor) {
+            _strokeColor = CGColorCreateCopy(strokeColor);
+        }
     }
     
     if (strokeWidth != 0.0) {
@@ -487,12 +491,16 @@ static CGAffineTransform parseTransform(NSString *transformText)
     
     id strokeColorName = [_attributes objectForKey:@"stroke"];
     if (strokeColorName && ![strokeColorName isEqualToString:@"none"]) {
-        strokeColor = CGColorForName(strokeColorName);
+        strokeColor = CGCreateColorForName(strokeColorName);
+    } else {
+        strokeColor = NULL;
     }
     
     id fillColorName = [_attributes objectForKey:@"fill"];
     if (fillColorName && ![fillColorName isEqualToString:@"none"]) {
-        fillColor = CGColorForName(fillColorName);
+        fillColor = CGCreateColorForName(fillColorName);
+    } else {
+        fillColor = NULL;
     }
     
     id strokeWidthText = [_attributes objectForKey:@"stroke-width"];
@@ -508,6 +516,13 @@ static CGAffineTransform parseTransform(NSString *transformText)
                    fillColor:fillColor
                  strokeWidth:strokeWidth
               colorOverrides:colorOverrides];
+    }
+    
+    if (fillColor) {
+        CGColorRelease(fillColor);
+    }
+    if (strokeColor) {
+        CGColorRelease(strokeColor);
     }
 }
 
@@ -673,6 +688,7 @@ static CGAffineTransform parseTransform(NSString *transformText)
     horizontalAlignment:RadSVGHorizontalAlignmentCenter
          colorOverrides:colorOverrides];
     CGImageRef theCGImage=CGBitmapContextCreateImage(context);
+    UIGraphicsPopContext();
     UIImage *image = [[UIImage alloc] initWithCGImage:theCGImage
                                                 scale:scale
                                           orientation:UIImageOrientationUp];
@@ -723,10 +739,12 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
     const char *c = pathString;
     CGFloat lastx2 = 0;
     CGFloat lasty2 = 0;
+    char previousCommand = '\0';
     while (*c) {
         if ((*c == ' ') || (*c == '\n')) {
             c++;
         } else if ((*c == 'm') || (*c == 'M')) {
+            previousCommand = *c;
             // MOVE
             CGFloat xc = 0.0;
             CGFloat yc = 0.0;
@@ -740,6 +758,7 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
             CGFloat y = parsePathNumber(&c)+yc;
             CGPathMoveToPoint(cgpath, transform, x, y);
         } else if ((*c == 'l') || (*c == 'L')) {
+            previousCommand = *c;
             // LINE
             CGFloat xc = 0.0;
             CGFloat yc = 0.0;
@@ -753,6 +772,7 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
             CGFloat y = parsePathNumber(&c)+yc;
             CGPathAddLineToPoint(cgpath, transform, x, y);
         } else if ((*c == 'h') || (*c == 'H')) {
+            previousCommand = *c;
             // HORIZONTAL LINE
             CGPoint current = CGPathGetCurrentPoint(cgpath);
             CGFloat xc = 0.0;
@@ -764,6 +784,7 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
             CGFloat x = parsePathNumber(&c)+xc;
             CGPathAddLineToPoint(cgpath, transform, x, y);
         } else if ((*c == 'v') || (*c == 'V')) {
+            previousCommand = *c;
             // VERTICAL LINE
             CGPoint current = CGPathGetCurrentPoint(cgpath);
             CGFloat yc = 0.0;
@@ -775,6 +796,7 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
             CGFloat x = current.x;
             CGPathAddLineToPoint(cgpath, transform, x, y);
         } else if ((*c == 'c') || (*c == 'C')) {
+            previousCommand = *c;
             // BEZIER CURVE
             CGFloat xc = 0.0;
             CGFloat yc = 0.0;
@@ -794,6 +816,7 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
             lastx2 = x2;
             lasty2 = y2;
         } else if ((*c == 's') || (*c == 'S')) {
+            previousCommand = *c;
             // SHORTHAND BEZIER CURVE
             CGFloat xc = 0.0;
             CGFloat yc = 0.0;
@@ -813,10 +836,12 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
             lastx2 = x2;
             lasty2 = y2;
         } else if ((*c == 'z') || (*c == 'Z')) {
+            previousCommand = *c;
             // CLOSE PATH
             CGPathCloseSubpath(cgpath);
             c++;
         } else if ((*c == 'q') || (*c == 'Q')) {
+            previousCommand = *c;
             // Quadratic BEZIER CURVE
             CGFloat xc = 0.0;
             CGFloat yc = 0.0;
@@ -834,6 +859,7 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
             lastx2 = x1;
             lasty2 = y1;
         } else if ((*c == 't') || (*c == 'T')) {
+            previousCommand = *c;
             // SHORTHAND QUADRATIC BEZIER CURVE
             CGFloat xc = 0.0;
             CGFloat yc = 0.0;
@@ -851,9 +877,13 @@ static void parsePathText(CGMutablePathRef cgpath, CGAffineTransform *transform,
             lastx2 = x1;
             lasty2 = y1;
         } else {
-            NSLog(@"stuck on unknown svg path command: %c", *c);
-            c++;
-            //assert(0);
+            if (previousCommand) {
+                --c;
+                *(char *) c = previousCommand;
+            } else {
+                NSLog(@"stuck on unknown svg path command: %c", *c);
+                c++;
+            }
         }
     }
 }

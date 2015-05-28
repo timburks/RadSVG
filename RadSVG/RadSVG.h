@@ -10,7 +10,7 @@
 #import <UIKit/UIKit.h>
 #endif
 
-typedef enum {    
+typedef enum {
     RadSVGVerticalAlignmentTop,
     RadSVGVerticalAlignmentCenter,
     RadSVGVerticalAlignmentBottom
